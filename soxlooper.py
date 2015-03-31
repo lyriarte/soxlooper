@@ -50,7 +50,8 @@ loopFifoPrefix = "loop_fifo_" + str(os.getpid()) + "_"
 mkPipes(loopFifoPrefix, nbLoops)
 
 soxFileOptions = [itm for lst in [opt for i in range(0, nbLoops) for opt in soxFormatOptions, [loopFifoPrefix + str(i)]] for itm in lst]
-soxCall = [itm for lst in [["sox"], soxGlobalOptions, soxFileOptions, soxOutfile] for itm in lst]
-subprocess.call(soxCall)
+soxPlayer = subprocess.Popen([itm for lst in [["sox"], soxGlobalOptions, soxFileOptions, soxOutfile] for itm in lst])
+
+soxPlayer.wait()
 
 rmPipes(loopFifoPrefix, nbLoops)
