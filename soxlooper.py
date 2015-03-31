@@ -17,7 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
-import os, subprocess
+import os, subprocess, sys
 
 
 #### #### FIFO management
@@ -31,13 +31,26 @@ def rmPipes(prefix, nb):
 		os.unlink(prefix + str(i))
 
 
+#### #### SoX environment wrapper
+
+soxGlobalOptions = ["--combine", "mix-power"]
+soxFormatOptions = ["--rate", "44100", "--encoding", "signed", "--bits", "16", "--channels", "2"]
+soxOutfile = ["--default"]
 
 #### #### #### #### 
 
-prefix = "loop_fifo_" + str(os.getpid()) + "_"
+usage = "soxplayer.py infile1 [infile2]..."
 
-subprocess.call(["ls"]);
-mkPipes(prefix, 9)
-subprocess.call(["ls", "-l"]);
-rmPipes(prefix, 9)
-subprocess.call(["ls"]);
+nbLoops = len(sys.argv)
+if nbLoops < 2:
+	print usage
+	exit(1)
+
+loopFifoPrefix = "loop_fifo_" + str(os.getpid()) + "_"
+mkPipes(loopFifoPrefix, nbLoops)
+
+soxFileOptions = [itm for lst in [opt for i in range(0, nbLoops) for opt in soxFormatOptions, [loopFifoPrefix + str(i)]] for itm in lst]
+soxCall = [itm for lst in [["sox"], soxGlobalOptions, soxFileOptions, soxOutfile] for itm in lst]
+subprocess.call(soxCall)
+
+rmPipes(loopFifoPrefix, nbLoops)
