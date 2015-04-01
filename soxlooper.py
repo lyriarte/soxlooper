@@ -35,7 +35,7 @@ def rmPipes(prefix, nb):
 
 soxGlobalOptions = ["--combine", "mix-power"]
 soxFormatOptions = ["--rate", "44100", "--encoding", "signed", "--bits", "16", "--channels", "2"]
-soxOutfile = ["--default"]
+soxOutfile = ["-d", "-q"]
 
 loopFifoPrefix = "loop_fifo_" + str(os.getpid()) + "_"
 
@@ -43,15 +43,18 @@ soxPlayers = []
 loopFileNames = []
 loopPlaying = []
 
+innull = os.open("/dev/null", os.O_RDONLY)
+outnull = os.open("/dev/null", os.O_WRONLY)
+
 def soxPlayLoop(channel):
 	loopPlaying[channel] = True
 	fifo = os.open(loopFifoPrefix + str(channel), os.O_WRONLY)
-	soxPlayers[channel] = subprocess.Popen(["sox", loopFileNames[channel], "-p", "repeat", "-"], stdout=fifo)
+	soxPlayers[channel] = subprocess.Popen(["sox", loopFileNames[channel], "-p", "repeat", "-"], stdout=fifo, stderr=outnull)
 
 def soxPlaySilence(channel):
 	loopPlaying[channel] = False
 	fifo = os.open(loopFifoPrefix + str(channel), os.O_WRONLY)
-	soxPlayers[channel] = subprocess.Popen([itm for lst in [["sox", "-n"], soxFormatOptions, ["-p", "repeat", "-"]] for itm in lst], stdout=fifo)
+	soxPlayers[channel] = subprocess.Popen([itm for lst in [["sox", "-n"], soxFormatOptions, ["-p", "repeat", "-"]] for itm in lst], stdout=fifo, stderr=outnull)
 
 def closeChannel(channel):
 	if soxPlayers[channel] != None:
@@ -78,13 +81,14 @@ if nbLoops < 1:
 	exit(1)
 
 loopFileNames = sys.argv[1:]
+inputMsg = "Channel 1.." + str(nbLoops) + ": "
 
 # create loop fifos
 mkPipes(loopFifoPrefix, nbLoops)
 
 # launch one sox player instance mixing all loop fifos
 soxFileOptions = [itm for lst in [opt for i in range(0, nbLoops) for opt in soxFormatOptions, [loopFifoPrefix + str(i)]] for itm in lst]
-soxPlayer = subprocess.Popen([itm for lst in [["sox"], soxGlobalOptions, soxFileOptions, soxOutfile] for itm in lst], stdin=os.open("/dev/null", os.O_RDONLY), stdout=os.open("/dev/null", os.O_WRONLY))
+soxPlayer = subprocess.Popen([itm for lst in [["sox"], soxGlobalOptions, soxFileOptions, soxOutfile] for itm in lst], stdin=innull, stdout=outnull, stderr=outnull)
 
 # launch one sox player per loop, playing silence
 soxPlayers = [ None ] * nbLoops
@@ -97,7 +101,7 @@ channel = -1
 while channel != 0 and soxPlayer.poll() == None:
 	channel = 0
 	try:
-		channel = int(raw_input("Toggle channel (0 to stop): "))
+		channel = int(raw_input(inputMsg))
 	except Exception:
 		channel = 0
 	# stop playing on channel 0 or invalid input
