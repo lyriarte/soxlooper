@@ -22,6 +22,7 @@ import os, subprocess, sys, thread
 
 #### #### FIFO management
 
+outPipes = []
 def mkPipes(prefix, nb):
 	for i in range(0, nb):
 		os.mkfifo(prefix + str(i))
@@ -30,6 +31,8 @@ def rmPipes(prefix, nb):
 	for i in range(0, nb):
 		os.unlink(prefix + str(i))
 
+def openPipe(prefix, channel):
+	outPipes[channel] = os.open(prefix + str(channel), os.O_WRONLY)
 
 #### #### SoX environment wrapper
 
@@ -48,13 +51,15 @@ outnull = os.open("/dev/null", os.O_WRONLY)
 
 def soxPlayLoop(channel):
 	loopPlaying[channel] = True
-	fifo = os.open(loopFifoPrefix + str(channel), os.O_WRONLY)
-	soxPlayers[channel] = subprocess.Popen(["sox", loopFileNames[channel], "-p", "repeat", "-"], stdout=fifo, stderr=outnull)
+	soxPlayers[channel] = subprocess.Popen(["sox", loopFileNames[channel], "-p", "repeat", "-"], stdout=outPipes[channel], stderr=outnull)
 
 def soxPlaySilence(channel):
 	loopPlaying[channel] = False
-	fifo = os.open(loopFifoPrefix + str(channel), os.O_WRONLY)
-	soxPlayers[channel] = subprocess.Popen([itm for lst in [["sox", "-n"], soxFormatOptions, ["-p", "repeat", "-"]] for itm in lst], stdout=fifo, stderr=outnull)
+	soxPlayers[channel] = subprocess.Popen([itm for lst in [["sox", "-n"], soxFormatOptions, ["-p", "repeat", "-"]] for itm in lst], stdout=outPipes[channel], stderr=outnull)
+
+def openChannel(channel):
+	openPipe(loopFifoPrefix, channel)
+	soxPlaySilence(channel)
 
 def closeChannel(channel):
 	if soxPlayers[channel] != None:
@@ -64,11 +69,12 @@ def closeChannel(channel):
 
 def toggleChannel(channel):
 	if soxPlayers[channel] != None:
+		soxPlayers[channel].stdout=outnull
 		soxPlayers[channel].terminate()
 	if loopPlaying[channel]:
-		thread.start_new_thread(soxPlaySilence, (channel,))
+		soxPlaySilence(channel)
 	else:
-		thread.start_new_thread(soxPlayLoop, (channel,))
+		soxPlayLoop(channel)
 
 
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
@@ -84,6 +90,7 @@ loopFileNames = sys.argv[1:]
 inputMsg = "Channel 1.." + str(nbLoops) + ": "
 
 # create loop fifos
+outPipes = [ outnull ] * nbLoops
 mkPipes(loopFifoPrefix, nbLoops)
 
 # launch one sox player instance mixing all loop fifos
@@ -92,9 +99,10 @@ soxPlayer = subprocess.Popen([itm for lst in [["sox"], soxGlobalOptions, soxFile
 
 # launch one sox player per loop, playing silence
 soxPlayers = [ None ] * nbLoops
-for i in range(0, nbLoops):
-	thread.start_new_thread(soxPlaySilence, (i,))
 loopPlaying = [ False ] * nbLoops
+for i in range(0, nbLoops):
+	thread.start_new_thread(openChannel, (i,))
+
 
 # input channel number (indexed from 1) to toggle, or 0 to stop
 channel = -1
