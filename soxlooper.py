@@ -55,7 +55,7 @@ def soxPlayLoop(channel):
 
 def soxPlaySilence(channel):
 	loopPlaying[channel] = False
-	soxPlayers[channel] = subprocess.Popen([itm for lst in [["sox", "-n"], soxFormatOptions, ["-p", "repeat", "-"]] for itm in lst], stdout=outPipes[channel], stderr=outnull)
+	soxPlayers[channel] = subprocess.Popen([itm for lst in [["sox", "-n"], soxFormatOptions, ["-p"]] for itm in lst], stdout=outPipes[channel], stderr=outnull)
 
 def openChannel(channel):
 	openPipe(loopFifoPrefix, channel)
