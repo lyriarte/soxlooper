@@ -89,6 +89,11 @@ if nbLoops < 1:
 loopFileNames = sys.argv[1:]
 inputMsg = "Channel 1.." + str(nbLoops) + ": "
 
+# If there is just one loop, add another one that will play silence
+nbLoopFiles = nbLoops
+if nbLoops == 1:
+	nbLoops = nbLoops + 1
+
 # create loop fifos
 outPipes = [ outnull ] * nbLoops
 mkPipes(loopFifoPrefix, nbLoops)
@@ -113,7 +118,8 @@ while channel != 0 and soxPlayer.poll() == None:
 	except Exception:
 		channel = 0
 	# stop playing on channel 0 or invalid input
-	if channel == 0 or channel > nbLoops:
+	if channel == 0 or channel > nbLoopFiles:
+		channel = 0
 		for i in range(0, nbLoops):
 			closeChannel(i)
 	else:
